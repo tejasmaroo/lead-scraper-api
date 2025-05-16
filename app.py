@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from apollo_filter_generator import ApolloFilterGenerator
 import logging
+import os
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -85,4 +86,6 @@ def home():
     """
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use the PORT environment variable provided by Render
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
