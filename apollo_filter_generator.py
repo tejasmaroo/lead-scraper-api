@@ -4,12 +4,13 @@ import openai
 import os
 from dotenv import load_dotenv
 import json
+from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
 
-# Configure OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize the OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class ApolloFilterGenerator:
     # Base URL with email status verified as default
@@ -101,7 +102,7 @@ class ApolloFilterGenerator:
         """
         
         try:
-            response = openai.chat.completions.create(
+            response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant that extracts structured information from queries and returns only valid JSON."},
