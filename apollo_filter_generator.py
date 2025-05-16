@@ -3,22 +3,13 @@ import urllib.parse
 import os
 from dotenv import load_dotenv
 import json
-import openai
 from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
 
-# Set OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# Create client with minimal configuration
-try:
-    # First, try the new approach with minimal parameters
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-except TypeError:
-    # If that fails, fall back to using the module-level API
-    client = None
+# Initialize the OpenAI client with only the required parameter
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class ApolloFilterGenerator:
     # Base URL with email status verified as default
@@ -110,81 +101,34 @@ class ApolloFilterGenerator:
         """
         
         try:
-            # Try using the client if available, otherwise fall back to module-level API
-            if client is not None:
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[
-                            {"role": "system", "content": "You are a helpful assistant that extracts structured information from queries and returns only valid JSON."},
-                            {"role": "user", "content": prompt}
-                        ]
-                    )
-                except Exception as client_error:
-                    print(f"Error with client approach: {client_error}")
-                    # Fall back to module-level API
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4o",
-                        messages=[
-                            {"role": "system", "content": "You are a helpful assistant that extracts structured information from queries and returns only valid JSON."},
-                            {"role": "user", "content": prompt}
-                        ]
-                    )
-            else:
-                # Use module-level API directly
-                response = openai.ChatCompletion.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant that extracts structured information from queries and returns only valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
+            # Use the OpenAI client with the latest API version
+            response = client.chat.completions.create(
+                model="gpt-4",  # Changed to gpt-4 as gpt-4o might not be available everywhere
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that extracts structured information from queries and returns only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
             
-            # Parse the content as JSON - handle different response structures 
+            # Parse the content as JSON
+            content = response.choices[0].message.content.strip()
+            
+            # Handle any text before or after the JSON
             try:
-                if hasattr(response.choices[0], 'message'):
-                    # New API structure
-                    content = response.choices[0].message.content.strip()
+                # Try to parse as-is first
+                return json.loads(content)
+            except json.JSONDecodeError:
+                # If that fails, try to extract JSON from the text
+                match = re.search(r'({.*})', content, re.DOTALL)
+                if match:
+                    return json.loads(match.group(1))
                 else:
-                    # Old API structure
-                    content = response.choices[0].message['content'].strip()
-                
-                # Handle any text before or after the JSON
-                try:
-                    # Try to parse as-is first
-                    return json.loads(content)
-                except json.JSONDecodeError:
-                    # If that fails, try to extract JSON from the text
-                    match = re.search(r'({.*})', content, re.DOTALL)
-                    if match:
-                        return json.loads(match.group(1))
-                    else:
-                        print(f"Could not extract JSON from response: {content}")
-                        return {}
-            except AttributeError as ae:
-                print(f"Attribute error when parsing response: {ae}")
-                # Handle legacy format or unexpected format
-                if hasattr(response, 'choices') and len(response.choices) > 0:
-                    if isinstance(response.choices[0], dict) and 'text' in response.choices[0]:
-                        content = response.choices[0]['text'].strip()
-                    elif isinstance(response.choices[0], dict) and 'message' in response.choices[0]:
-                        content = response.choices[0]['message'].get('content', '').strip()
-                    else:
-                        print("Unknown response format")
-                        return {}
-                    
-                    try:
-                        return json.loads(content)
-                    except json.JSONDecodeError:
-                        match = re.search(r'({.*})', content, re.DOTALL)
-                        if match:
-                            return json.loads(match.group(1))
-                        else:
-                            print(f"Could not extract JSON from response: {content}")
-                            return {}
-                else:
-                    print("Response doesn't have expected structure")
+                    print(f"Could not extract JSON from response: {content}")
                     return {}
+                
+        except Exception as e:
+            print(f"Error in entity extraction: {e}")
+            return {}
                 
         except Exception as e:
             print(f"Error in entity extraction: {e}")
