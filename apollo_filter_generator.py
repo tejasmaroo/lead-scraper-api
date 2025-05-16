@@ -3,13 +3,13 @@ import urllib.parse
 import os
 from dotenv import load_dotenv
 import json
-from openai import OpenAI
+import requests
 
 # Load environment variables
 load_dotenv()
 
-# Initialize the OpenAI client with only the required parameter
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI API key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 class ApolloFilterGenerator:
     # Base URL with email status verified as default
@@ -101,37 +101,37 @@ class ApolloFilterGenerator:
         """
         
         try:
-            # Use the OpenAI client with the latest API version
-            response = client.chat.completions.create(
-                model="gpt-4",  # Changed to gpt-4 as gpt-4o might not be available everywhere
-                messages=[
+            # Direct HTTP call to OpenAI API via requests
+            headers = {
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "gpt-4o",
+                "messages": [
                     {"role": "system", "content": "You are a helpful assistant that extracts structured information from queries and returns only valid JSON."},
                     {"role": "user", "content": prompt}
                 ]
+            }
+            res = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json=payload
             )
-            
-            # Parse the content as JSON
-            content = response.choices[0].message.content.strip()
-            
-            # Handle any text before or after the JSON
-            try:
-                # Try to parse as-is first
-                return json.loads(content)
-            except json.JSONDecodeError:
-                # If that fails, try to extract JSON from the text
-                match = re.search(r'({.*})', content, re.DOTALL)
-                if match:
-                    return json.loads(match.group(1))
-                else:
-                    print(f"Could not extract JSON from response: {content}")
-                    return {}
-                
+            response = res.json()
+            content = response["choices"][0]["message"]["content"].strip()
         except Exception as e:
             print(f"Error in entity extraction: {e}")
             return {}
-                
-        except Exception as e:
-            print(f"Error in entity extraction: {e}")
+        
+        # Parse the content as JSON
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            match = re.search(r'({.*})', content, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+            print(f"Could not extract JSON from response: {content}")
             return {}
     
     def build_url(self, entities: dict) -> str:
