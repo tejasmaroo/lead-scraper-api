@@ -1,6 +1,5 @@
 import re
 import urllib.parse
-import openai
 import os
 from dotenv import load_dotenv
 import json
@@ -9,7 +8,7 @@ from openai import OpenAI
 # Load environment variables
 load_dotenv()
 
-# Initialize the OpenAI client
+# Initialize the OpenAI client - without any extra parameters that might cause issues
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class ApolloFilterGenerator:
